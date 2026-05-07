@@ -17,23 +17,23 @@ export default class GameScene extends Phaser.Scene{
     preload() {
           this.load.image(
         'background',
-        'src/assets/images/backgrounds/Space_BG_02.png'
+        'assets/images/backgrounds/Space_BG_02.png'
         )
         this.load.image(
             'player',
-            'src/assets/images/player/Boss_Full.png'
+            'assets/images/player/Boss_Full.png'
         )
         this.load.image(
             'asteroid',
-            'src/assets/images/obstacles/asteroid.png'
+            'assets/images/obstacles/asteroid.png'
         )
         this.load.image(
             'laser',
-            'src/assets/images/laser/laser1.png'
+            'assets/images/laser/laser1.png'
         )
         this.load.image(
             'warning',
-            'src/assets/images/effects/warning.png'
+            'assets/images/effects/warning.png'
         )
     }
     create() {
