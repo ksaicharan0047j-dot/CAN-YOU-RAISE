@@ -1,45 +1,15 @@
-# CAN YOU RISE 🚀
-
-CAN YOU RISE is a fast-paced arcade survival game built using Phaser.js.
-
-## 🎮 Gameplay
-Control a spaceship and survive against deadly obstacles, lasers, and asteroid attacks for as long as possible.
-
-## ✨ Features
-- Progressive difficulty
-- High score system
-- Animated game over screen
-- Arcade survival gameplay
-- Online playable build
-
-## 🛠 Built With
-- Phaser.js
-- JavaScript
-- Vite
-
-## 🚀 Play Online
-https://saicharan004.itch.io/can-you-raise
-
-## 📦 Installation
-
-```bash
-npm install
-npm run dev
-Future Plans
-Acceleration movement system
-Boss fights
-Online leaderboard
-Sound effects & music
-More attack patterns
-Developer
-
-saicharan004
-
----
-
-# THEN
-
-Replace:
-
-```text id="u9y6si"
-https://https://saicharan004.itch.io/can-you-raise
+#CAN YOU RAISE 
+This is my first playable game made using:
+1. javasript
+2. phaser.js
+3. Vite
+#Discripsion
+in this game the player is a spaceship and need to dough asteroids and lasers, further this game gets harder as the score increases the speed of asteroids increases
+#Future developments
+1. adding cross shurkeins
+2. changing game controlls
+3. adding animations to spaceship
+4. and more stuff loading.....
+here is the link for my game:
+saicharan004.itch.io/can-you-raise
+thank you
