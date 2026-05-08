@@ -10,6 +10,7 @@ let highScoreText
 let obstacleSpeed = 250
 let spawnDelay = 1000
 let isGameOver = false
+let shurikens
 export default class GameScene extends Phaser.Scene{
     constructor(){
         super('GameScene')
@@ -35,6 +36,10 @@ export default class GameScene extends Phaser.Scene{
             'warning',
             'assets/images/effects/warning.png'
         )
+        this.load.image(
+            'shuriken',
+            'assets/images/obstacles/shuriken.png'
+        )
     }
     create() {
         score = 0
@@ -50,6 +55,7 @@ export default class GameScene extends Phaser.Scene{
         player.setScale(0.08)
         player.setCollideWorldBounds(true)
         obstacles = this.physics.add.group()
+        shurikens = this.physics.add.group()
 
         highScoreText = this.add.text(200, 20, 'HIGH SCORE: 0',{
             fontSize: '28px',
@@ -108,6 +114,19 @@ export default class GameScene extends Phaser.Scene{
             callbackScope: this,
             loop: true
         })
+        this.time.addEvent({
+            delay: 4000,
+            callback: spawnShurikenCrossfire,
+            callbackScope: this,
+            loop: true
+        })
+        this.physics.add.overlap(
+            player,
+            shurikens,
+            hitObstacle,
+            null,
+            this
+        )
     }
     update() {
         player.x = this.input.x
@@ -211,7 +230,7 @@ let laserCount = 1
         repeat: -1,
         duration: 200
     })
-    scene.time.delayedCall(2200, () => {
+    scene.time.delayedCall(2000, () => {
         warning.destroy()
 
         const laser = lasers.create(
@@ -220,6 +239,13 @@ let laserCount = 1
             'laser'
         )
         laser.setScale(0.45, 0.2)
+
+        laser.body.setSize(
+            laser.width * 0.9,
+            laser.height * 0.5
+        )
+
+        laser.body.updateFromGameObject()
 
         laser.setAngle(angle)
 
@@ -233,12 +259,30 @@ let laserCount = 1
         )
         scene.tweens.add({
             targets: laser,
-            angle: angle + 180,
-            duration: 2000
+            angle: angle + 360,
+            duration: 2000,
+            repeat: -1
         })
-        scene.time.delayedCall(2000, () => {
+        scene.time.delayedCall(5000, () => {
             laser.destroy()
             })
         })
+    }
+}
+function spawnShurikenCrossfire() {
+    for(let i = 0; i < 4; i++) {
+        const shuriken = shurikens.create(
+            Phaser.Math.Between(0, 400),
+            -50,
+            'shuriken'
+        )
+        shuriken.setScale(0.12)
+        shuriken.setVelocity(
+            Phaser.Math.Between(-250, 250),
+            Phaser.Math.Between(250, 450)
+        )
+        shuriken.setAngularVelocity(
+            Phaser.Math.Between(-400, 400)
+        )
     }
 }
