@@ -18,7 +18,7 @@ Control a spaceship and survive against deadly obstacles, lasers, and asteroid a
 - Vite
 
 ## 🚀 Play Online
-https://YOUR-ITCH-LINK
+https://saicharan004.itch.io/can-you-raise
 
 ## 📦 Installation
 
