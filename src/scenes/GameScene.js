@@ -11,6 +11,12 @@ let obstacleSpeed = 250
 let spawnDelay = 1000
 let isGameOver = false
 let shurikens
+let cursors
+let speed = 0
+let maxSpeed = 450
+let bottomTimer = 0
+let warningText
+let laserHitboxes
 export default class GameScene extends Phaser.Scene{
     constructor(){
         super('GameScene')
@@ -40,6 +46,7 @@ export default class GameScene extends Phaser.Scene{
             'shuriken',
             'assets/images/obstacles/shuriken.png'
         )
+        
     }
     create() {
         score = 0
@@ -52,10 +59,23 @@ export default class GameScene extends Phaser.Scene{
 
         player = this.physics.add.image(200, 600,
     'player')
+        player.setAngle(180)
         player.setScale(0.08)
         player.setCollideWorldBounds(true)
+        cursors = this.input.keyboard.createCursorKeys()
+        this.input.on('pointerdown', () => {
+            speed = maxSpeed
+        })
+        this.input.on('pointerup', () => {
+            speed = 0
+        })
+        this.keys = this.input.keyboard.addKeys('A,D')
         obstacles = this.physics.add.group()
         shurikens = this.physics.add.group()
+        lasers = this.physics.add.group()
+        laserHitboxes = this.physics.add.group()
+
+        
 
         highScoreText = this.add.text(200, 20, 'HIGH SCORE: 0',{
             fontSize: '28px',
@@ -89,7 +109,17 @@ export default class GameScene extends Phaser.Scene{
             null,
             this
         )
-
+        warningText = this.add.text(
+            200,
+            650,
+            '',
+            {
+                fontSize: '24px',
+                fill:'#ff0000',
+                fontStyle: 'bold'
+            }
+        ).setOrigin(0.5)
+        
         
 
         startObstacleSpawner.call(this)
@@ -127,16 +157,75 @@ export default class GameScene extends Phaser.Scene{
             null,
             this
         )
+        this.time.addEvent({
+            delay: Phaser.Math.Between(10000, 18000),
+
+            callback: asteroidRain.bind(this),
+
+            callbackScope: this,
+
+            loop: true
+        })
+        this.physics.add.overlap(
+            player,
+            laserHitboxes,
+            hitObstacle,
+            null,
+            this
+        )
     }
     update() {
-        player.x = this.input.x
-
-        player.y = this.input.y
+        if(speed > 0){
+            player.setVelocityY(-speed)
+        }else{
+            player.setVelocityY(150)
+        }
+        if(cursors.left.isDown || this.keys.A.isDown){
+            player.setVelocityX(-300)
+        }else if(cursors.right.isDown || this.keys.D.isDown){
+            player.setVelocityX(300)
+        }else{
+            player.setVelocityX(0)
+        }
+        if (player.body.velocity.x < -10){
+            player.setAngle(-15)
+        }else if(player.body.velocity.x > 10){
+            player.setAngle(15)
+        }else{
+            player.setAngle(0)
+        }
 
         obstacles.getChildren().forEach((obstacle) => {
             if (obstacle.y > 800) {
                 obstacle.destroy()
             }
+        })
+        if (player.y > 600) {
+            bottomTimer += this.game.loop.delta / 1000
+
+            warningText.setText(
+                'MOVE UP! ' + 
+                (3 - bottomTimer).toFixed(1)
+            ) 
+            if (bottomTimer >= 3) {
+                hitObstacle.call(this, player, null)
+            }
+        }else{
+            bottomTimer = 0
+            warningText.setText('')
+        }
+        laserHitboxes.getChildren().forEach((hitbox) => {
+            const laser = hitbox.laser
+
+            if(!laser || !laser.active) {
+                hitbox.destroy()
+                return
+            }
+            const offsetDistance = 35
+            hitbox.x = laser.x + Math.cos(laser.rotation) * offsetDistance
+
+            hitbox.y = laser.y + Math.sin(laser.rotation) * offsetDistance
+            hitbox.rotation = laser.rotation
         })
     }
 }
@@ -238,11 +327,23 @@ let laserCount = 1
             y,
             'laser'
         )
-        laser.setScale(0.45, 0.2)
+        const laserHitbox = this.add.rectangle(
+            x,
+            y,
+            laser.displayWidth * 0.9,
+            laser.displayHeight * 0.1,
+            0xff0000
+        )
+        this.physics.add.existing(laserHitbox)
+        laserHitbox.visible = false
+        laserHitbox.laser = laser
+        laserHitboxes.add(laserHitbox)
+        
+        laser.setScale(0.45, 0.3)
 
         laser.body.setSize(
             laser.width * 0.9,
-            laser.height * 0.5
+            laser.height * 0.8
         )
 
         laser.body.updateFromGameObject()
@@ -284,5 +385,20 @@ function spawnShurikenCrossfire() {
         shuriken.setAngularVelocity(
             Phaser.Math.Between(-400, 400)
         )
+    }
+}
+function asteroidRain() {
+    const safeZone = Phaser.Math.Between(80, 320)
+    for( let i = 0; i < 15; i++) {
+        this.time.delayedCall(i * 120, () => {
+            let x = Phaser.Math.Between(0, 400)
+            while (Math.abs(x - safeZone) < 60){ 
+                x = Phaser.Math.Between(0, 400)
+            }
+            const asteroid = obstacles.create(x, -50, 'asteroid')
+            asteroid.setVelocityY(Phaser.Math.Between(350, 500))
+            asteroid.setScale(Phaser.Math.FloatBetween(0.08,0.15))
+            asteroid.setAngularVelocity(Phaser.Math.Between(-200,200))
+        })
     }
 }
