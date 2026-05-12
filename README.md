@@ -1,4 +1,7 @@
 #CAN YOU RAISE 
+Controlls:
+left click to accelerate 
+a,d or left, right arrows to move left and right
 This is my first playable game made using:
 1. javasript
 2. phaser.js
