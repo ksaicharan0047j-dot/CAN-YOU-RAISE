@@ -80,7 +80,8 @@ export default class GameScene extends Phaser.Scene{
             player.y + 45,
             'exhaust'
         )
-        exhaust.setScale(0.07)
+        exhaust.setScale(0.09)
+        exhaust.setAlpha(0.9)
         exhaust.setVisible(false)
         cursors = this.input.keyboard.createCursorKeys()
         this.input.on('pointerdown', () => {
@@ -222,6 +223,7 @@ export default class GameScene extends Phaser.Scene{
         moveSpeed += acceleration
 
         exhaust.setVisible(true)
+        exhaust.setAlpha(1)
 
         if(moveSpeed > maxSpeed){
             moveSpeed = maxSpeed
@@ -237,7 +239,7 @@ export default class GameScene extends Phaser.Scene{
 
         moveSpeed -= decelaration
 
-        exhaust.setVisible(false)
+        exhaust.setAlpha(0.35)
 
         if(moveSpeed < 0){
             moveSpeed = 0
