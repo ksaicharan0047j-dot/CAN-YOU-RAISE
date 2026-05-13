@@ -21,6 +21,11 @@ let acceleration = 16
 let decelaration = 7
 let moveSpeed = 0
 let exhaust
+let energy = 0
+let maxEnergy = 100
+let isBoosting = false
+let energyBar
+let energyBg
 export default class GameScene extends Phaser.Scene{
     constructor(){
         super('GameScene')
@@ -58,6 +63,7 @@ export default class GameScene extends Phaser.Scene{
     create() {
         score = 0
         isGameOver = false
+        energy = 0
         this.physics.resume()
         console.log("Player Loaded")
         background = this.add.image(200, 350,
@@ -78,10 +84,10 @@ export default class GameScene extends Phaser.Scene{
         exhaust.setVisible(false)
         cursors = this.input.keyboard.createCursorKeys()
         this.input.on('pointerdown', () => {
-            speed = maxSpeed
+            isBoosting = true
         })
         this.input.on('pointerup', () => {
-            speed = 0
+            isBoosting = false
         })
         this.keys = this.input.keyboard.addKeys('A,D')
         obstacles = this.physics.add.group()
@@ -114,7 +120,22 @@ export default class GameScene extends Phaser.Scene{
 
             strokeThickness: 6
         }).setOrigin(0.5)
-
+        energyBg = this.add.rectangle(
+            30,
+            435,
+            24,
+            210,
+            0x111111
+        )
+        energyBg.setStrokeStyle(3, 0xffffff)
+        energyBar = this.add.rectangle(
+            30,
+            520,
+            18,
+            1,
+            0x00ffee
+        )
+        energyBar.setOrigin(0.5, 1)
 
         this.physics.add.overlap(
             player,
@@ -189,70 +210,134 @@ export default class GameScene extends Phaser.Scene{
         )
     }
     update() {
-        if(speed > 0){
-            moveSpeed += acceleration
-            exhaust.setVisible(true)
-            if(moveSpeed > maxSpeed){
-                moveSpeed = maxSpeed
-            }
-        }else{
-            moveSpeed -= decelaration
-            exhaust.setVisible(false)
-            if(moveSpeed < 0){
-                moveSpeed = 0
-            }
-        }
-        player.setVelocityY(150 - moveSpeed)
-        if(cursors.left.isDown || this.keys.A.isDown){
-            player.setVelocityX(-300)
-        }else if(cursors.right.isDown || this.keys.D.isDown){
-            player.setVelocityX(300)
-        }else{
-            player.setVelocityX(0)
-        }
-        if (player.body.velocity.x < -10){
-            player.setAngle(-15)
-        }else if(player.body.velocity.x > 10){
-            player.setAngle(15)
-        }else{
-            player.setAngle(0)
-        }
-        exhaust.x = player.x
-        exhaust.y = player.y + 45
-        exhaust.setAngle(player.angle)
-        obstacles.getChildren().forEach((obstacle) => {
-            if (obstacle.y > 800) {
-                obstacle.destroy()
-            }
-        })
-        if (player.y > 600) {
-            bottomTimer += this.game.loop.delta / 1000
 
-            warningText.setText(
-                'MOVE UP! ' + 
-                (3 - bottomTimer).toFixed(1)
-            ) 
-            if (bottomTimer >= 3) {
-                hitObstacle.call(this, player, null)
-            }
-        }else{
-            bottomTimer = 0
-            warningText.setText('')
+    if(isBoosting){
+
+        energy += 0.35
+
+        if(energy > maxEnergy){
+            energy = maxEnergy
         }
-        laserHitboxes.getChildren().forEach((hitbox) => {
-            const laser = hitbox.laser
 
-            if(!laser || !laser.active) {
-                hitbox.destroy()
-                return
-            }
-            const offsetDistance = 35
-            hitbox.x = laser.x + Math.cos(laser.rotation) * offsetDistance
+        moveSpeed += acceleration
 
-            hitbox.y = laser.y + Math.sin(laser.rotation) * offsetDistance
-            hitbox.rotation = laser.rotation
-        })
+        exhaust.setVisible(true)
+
+        if(moveSpeed > maxSpeed){
+            moveSpeed = maxSpeed
+        }
+
+    }else{
+
+        energy -= 0.05
+
+        if(energy < 0){
+            energy = 0
+        }
+
+        moveSpeed -= decelaration
+
+        exhaust.setVisible(false)
+
+        if(moveSpeed < 0){
+            moveSpeed = 0
+        }
     }
+
+    const targetHeight = energy * 2.05
+
+    energyBar.displayHeight = Phaser.Math.Linear(
+        energyBar.displayHeight,
+        targetHeight,
+        0.15
+    )
+
+    energyBar.y = 540
+
+    if(energy < 20) {
+        energyBar.fillColor = 0xff4444
+    }else{
+        energyBar.fillColor = 0x00ffee
+    }
+
+    player.setVelocityY(150 - moveSpeed)
+
+    if(cursors.left.isDown || this.keys.A.isDown){
+
+        player.setVelocityX(-300)
+
+    }else if(cursors.right.isDown || this.keys.D.isDown){
+
+        player.setVelocityX(300)
+
+    }else{
+
+        player.setVelocityX(0)
+    }
+
+    if (player.body.velocity.x < -10){
+
+        player.setAngle(-15)
+
+    }else if(player.body.velocity.x > 10){
+
+        player.setAngle(15)
+
+    }else{
+
+        player.setAngle(0)
+    }
+
+    exhaust.x = player.x
+    exhaust.y = player.y + 45
+    exhaust.setAngle(player.angle)
+
+    obstacles.getChildren().forEach((obstacle) => {
+
+        if (obstacle.y > 800) {
+
+            obstacle.destroy()
+        }
+    })
+
+    if (player.y > 600) {
+
+        bottomTimer += this.game.loop.delta / 1000
+
+        warningText.setText(
+            'MOVE UP! ' +
+            (3 - bottomTimer).toFixed(1)
+        )
+
+        if (bottomTimer >= 3) {
+
+            hitObstacle.call(this, player, null)
+        }
+
+    }else{
+
+        bottomTimer = 0
+        warningText.setText('')
+    }
+
+    laserHitboxes.getChildren().forEach((hitbox) => {
+
+        const laser = hitbox.laser
+
+        if(!laser || !laser.active) {
+
+            hitbox.destroy()
+            return
+        }
+
+        hitbox.x = laser.x
+        hitbox.y = laser.y
+
+        hitbox.rotation = laser.rotation
+
+        hitbox.body.updateFromGameObject()
+    })
+}
 }
 function spawnObstacle() {
     
@@ -355,8 +440,8 @@ let laserCount = 1
         const laserHitbox = this.add.rectangle(
             x,
             y,
-            laser.displayWidth * 0.9,
-            laser.displayHeight * 0.1,
+            laser.displayWidth * 0.25,
+            12,
             0xff0000
         )
         this.physics.add.existing(laserHitbox)
@@ -379,10 +464,6 @@ let laserCount = 1
 
         laser.setImmovable(true)
 
-        laser.setOrigin(
-            Phaser.Math.FloatBetween(0.2, 0.8),
-            0.5
-        )
         scene.tweens.add({
             targets: laser,
             angle: angle + 360,
