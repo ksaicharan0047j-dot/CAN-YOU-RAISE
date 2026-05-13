@@ -17,6 +17,10 @@ let maxSpeed = 450
 let bottomTimer = 0
 let warningText
 let laserHitboxes
+let acceleration = 16
+let decelaration = 7
+let moveSpeed = 0
+let exhaust
 export default class GameScene extends Phaser.Scene{
     constructor(){
         super('GameScene')
@@ -46,7 +50,10 @@ export default class GameScene extends Phaser.Scene{
             'shuriken',
             'assets/images/obstacles/shuriken.png'
         )
-        
+        this.load.image(
+            'exhaust',
+            '/assets/images/effects/exhaust_clean.png'
+        )
     }
     create() {
         score = 0
@@ -62,6 +69,13 @@ export default class GameScene extends Phaser.Scene{
         player.setAngle(180)
         player.setScale(0.08)
         player.setCollideWorldBounds(true)
+        exhaust = this.add.image(
+            player.x,
+            player.y + 45,
+            'exhaust'
+        )
+        exhaust.setScale(0.07)
+        exhaust.setVisible(false)
         cursors = this.input.keyboard.createCursorKeys()
         this.input.on('pointerdown', () => {
             speed = maxSpeed
@@ -176,10 +190,19 @@ export default class GameScene extends Phaser.Scene{
     }
     update() {
         if(speed > 0){
-            player.setVelocityY(-speed)
+            moveSpeed += acceleration
+            exhaust.setVisible(true)
+            if(moveSpeed > maxSpeed){
+                moveSpeed = maxSpeed
+            }
         }else{
-            player.setVelocityY(150)
+            moveSpeed -= decelaration
+            exhaust.setVisible(false)
+            if(moveSpeed < 0){
+                moveSpeed = 0
+            }
         }
+        player.setVelocityY(150 - moveSpeed)
         if(cursors.left.isDown || this.keys.A.isDown){
             player.setVelocityX(-300)
         }else if(cursors.right.isDown || this.keys.D.isDown){
@@ -194,7 +217,9 @@ export default class GameScene extends Phaser.Scene{
         }else{
             player.setAngle(0)
         }
-
+        exhaust.x = player.x
+        exhaust.y = player.y + 45
+        exhaust.setAngle(player.angle)
         obstacles.getChildren().forEach((obstacle) => {
             if (obstacle.y > 800) {
                 obstacle.destroy()
