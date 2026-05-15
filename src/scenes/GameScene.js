@@ -26,6 +26,9 @@ let maxEnergy = 100
 let isBoosting = false
 let energyBar
 let energyBg
+let isImmortal = false
+let boostTimer = 0
+let boostDuration = 10000
 export default class GameScene extends Phaser.Scene{
     constructor(){
         super('GameScene')
@@ -212,12 +215,18 @@ export default class GameScene extends Phaser.Scene{
     }
     update() {
 
-    if(isBoosting){
+    if(isBoosting && !isImmortal){
 
-        energy += 0.35
+        energy += 0.22
 
         if(energy > maxEnergy){
             energy = maxEnergy
+        }
+        if(energy >= maxEnergy && !isImmortal){
+            this.cameras.main.shake(300, 0.01)
+            isImmortal = true
+            boostTimer = boostDuration
+            energy = 0
         }
 
         moveSpeed += acceleration
@@ -229,9 +238,9 @@ export default class GameScene extends Phaser.Scene{
             moveSpeed = maxSpeed
         }
 
-    }else{
+    }else if(!isImmortal){
 
-        energy -= 0.05
+        energy -= 0.03
 
         if(energy < 0){
             energy = 0
@@ -262,8 +271,29 @@ export default class GameScene extends Phaser.Scene{
         energyBar.fillColor = 0x00ffee
     }
 
-    player.setVelocityY(150 - moveSpeed)
-
+    if(isImmortal){
+        boostTimer -= this.game.loop.delta
+        moveSpeed = 500
+        player.y = Phaser.Math.Linear(
+            player.y,
+            420,
+            0.08
+        )
+        if(boostTimer <= 0){
+            moveSpeed = 300
+            isImmortal = false
+        }
+    }
+    if(isImmortal){
+        player.setVelocityY(0)
+        player.y = Phaser.Math.Linear(
+            player.y,
+            350,
+            0.08
+        )
+    }else{
+        player.setVelocityY(150 - moveSpeed)
+    }
     if(cursors.left.isDown || this.keys.A.isDown){
 
         player.setVelocityX(-300)
@@ -288,6 +318,12 @@ export default class GameScene extends Phaser.Scene{
     }else{
 
         player.setAngle(0)
+    }
+
+    if(isImmortal){
+        player.setTint(0x00ffee)
+    }else{
+        player.clearTint()
     }
 
     exhaust.x = player.x
@@ -334,9 +370,7 @@ export default class GameScene extends Phaser.Scene{
 
         hitbox.x = laser.x
         hitbox.y = laser.y
-
         hitbox.rotation = laser.rotation
-
         hitbox.body.updateFromGameObject()
     })
 }
@@ -357,7 +391,7 @@ function spawnObstacle() {
     obstacle.outOfBoundsKill = true
 }
 function hitObstacle(player, obstacle) {
-    if (isGameOver) {
+    if (isGameOver || isImmortal) {
         return
     }
     isGameOver = true
@@ -371,7 +405,11 @@ function increaseScore() {
     if (isGameOver) {
         return
     }
-    score++
+    if(isImmortal){
+        score += 3
+    }else{
+        score++
+    }
     if (score > highScore) {
         highScore = score
         localStorage.setItem('highScore', highScore)
@@ -442,29 +480,18 @@ let laserCount = 1
         const laserHitbox = this.add.rectangle(
             x,
             y,
-            laser.displayWidth * 0.25,
-            12,
+            laser.displayWidth * 0.38,
+            10,
             0xff0000
         )
         this.physics.add.existing(laserHitbox)
+        laserHitbox.body.setAllowGravity(false)
+        laserHitbox.body.setImmovable(true)
         laserHitbox.visible = false
         laserHitbox.laser = laser
         laserHitboxes.add(laserHitbox)
         
         laser.setScale(0.45, 0.3)
-
-        laser.body.setSize(
-            laser.width * 0.9,
-            laser.height * 0.8
-        )
-
-        laser.body.updateFromGameObject()
-
-        laser.setAngle(angle)
-
-        laser.body.setAllowGravity(false)
-
-        laser.setImmovable(true)
 
         scene.tweens.add({
             targets: laser,
@@ -473,6 +500,7 @@ let laserCount = 1
             repeat: -1
         })
         scene.time.delayedCall(5000, () => {
+            laserHitbox.destroy()
             laser.destroy()
             })
         })
@@ -500,7 +528,7 @@ function asteroidRain() {
     for( let i = 0; i < 15; i++) {
         this.time.delayedCall(i * 120, () => {
             let x = Phaser.Math.Between(0, 400)
-            while (Math.abs(x - safeZone) < 60){ 
+            while (Math.abs(x - safeZone) < 100){ 
                 x = Phaser.Math.Between(0, 400)
             }
             const asteroid = obstacles.create(x, -50, 'asteroid')
