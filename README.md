@@ -12,7 +12,8 @@ in this game the player is a spaceship and need to dough asteroids and lasers, f
 1. adding cross shurkeins
 2. changing game controlls
 3. adding animations to spaceship
-4. and more stuff loading.....
+4. New Immortal Phase for 10 secs after filling the energy bar
+5. and more stuff loading.....
 here is the link for my game:
 saicharan004.itch.io/can-you-raise
 thank you
