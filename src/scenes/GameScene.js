@@ -29,6 +29,11 @@ let energyBg
 let isImmortal = false
 let boostTimer = 0
 let boostDuration = 10000
+let boostCircle
+let worldSpeedMultiplier = 1
+let rainSafeZones = []
+let rainPatternIndex = 0
+let asteroidRainIntensity = 1
 export default class GameScene extends Phaser.Scene{
     constructor(){
         super('GameScene')
@@ -212,21 +217,17 @@ export default class GameScene extends Phaser.Scene{
             null,
             this
         )
+        boostCircle = this.add.graphics()
     }
-    update() {
+update() {
 
+    
     if(isBoosting && !isImmortal){
 
         energy += 0.22
 
         if(energy > maxEnergy){
             energy = maxEnergy
-        }
-        if(energy >= maxEnergy && !isImmortal){
-            this.cameras.main.shake(300, 0.01)
-            isImmortal = true
-            boostTimer = boostDuration
-            energy = 0
         }
 
         moveSpeed += acceleration
@@ -253,8 +254,42 @@ export default class GameScene extends Phaser.Scene{
         if(moveSpeed < 0){
             moveSpeed = 0
         }
+
     }
 
+    
+    if(energy >= maxEnergy && !isImmortal){
+
+        this.tweens.add({
+
+            targets: this,
+
+            duration: 400,
+
+            ease: 'Sine.easeOut',
+
+            onUpdate: () => {
+
+                worldSpeedMultiplier = Phaser.Math.Linear(
+                    worldSpeedMultiplier,
+                    2.2,
+                    0.08
+                )
+
+            }
+
+        })
+
+        this.cameras.main.shake(300, 0.01)
+
+        isImmortal = true
+
+        boostTimer = boostDuration
+
+        energy = 0
+    }
+
+    
     const targetHeight = energy * 2.05
 
     energyBar.displayHeight = Phaser.Math.Linear(
@@ -265,35 +300,77 @@ export default class GameScene extends Phaser.Scene{
 
     energyBar.y = 540
 
-    if(energy < 20) {
+    if(energy < 20){
+
         energyBar.fillColor = 0xff4444
+
     }else{
+
         energyBar.fillColor = 0x00ffee
+    }
+
+    
+    boostCircle.clear()
+
+    if(isImmortal){
+
+        const percentage = boostTimer / boostDuration
+
+        boostCircle.lineStyle(10, 0x00ffff, 1)
+
+        boostCircle.beginPath()
+
+        boostCircle.arc(
+            340,
+            80,
+            35,
+            Phaser.Math.DegToRad(-90),
+            Phaser.Math.DegToRad(
+                (-90) + (360 * percentage)
+            ),
+            false
+        )
+
+        boostCircle.strokePath()
     }
 
     if(isImmortal){
         boostTimer -= this.game.loop.delta
-        moveSpeed = 500
-        player.y = Phaser.Math.Linear(
-            player.y,
-            420,
-            0.08
-        )
+        if(isBoosting){
+            moveSpeed += acceleration
+            if(moveSpeed > maxSpeed){
+                moveSpeed = maxSpeed
+            }
+        }else{
+            moveSpeed -= decelaration
+            if(moveSpeed < 0){
+                moveSpeed = 0
+            }
+        }
+        player.setVelocity(150 - moveSpeed)
         if(boostTimer <= 0){
             moveSpeed = 300
             isImmortal = false
+            boostTimer = 0
+            energy = 0
+            this.tweens.add({
+                targets: this,
+                duration: 500,
+                ease: 'Sine.easeOut',
+                onUpdate: () => {
+                    worldSpeedMultiplier = Phaser.Math.Linear(
+                        worldSpeedMultiplier,
+                        1,
+                        0.08
+                    )
+                }
+            })
         }
-    }
-    if(isImmortal){
-        player.setVelocityY(0)
-        player.y = Phaser.Math.Linear(
-            player.y,
-            350,
-            0.08
-        )
     }else{
-        player.setVelocityY(150 - moveSpeed)
+        player.setVelocity(150 - moveSpeed)
     }
+
+    
     if(cursors.left.isDown || this.keys.A.isDown){
 
         player.setVelocityX(-300)
@@ -307,7 +384,8 @@ export default class GameScene extends Phaser.Scene{
         player.setVelocityX(0)
     }
 
-    if (player.body.velocity.x < -10){
+    
+    if(player.body.velocity.x < -10){
 
         player.setAngle(-15)
 
@@ -320,25 +398,33 @@ export default class GameScene extends Phaser.Scene{
         player.setAngle(0)
     }
 
+    
     if(isImmortal){
+
         player.setTint(0x00ffee)
+
     }else{
+
         player.clearTint()
     }
 
+    
     exhaust.x = player.x
     exhaust.y = player.y + 45
     exhaust.setAngle(player.angle)
 
+    
     obstacles.getChildren().forEach((obstacle) => {
 
-        if (obstacle.y > 800) {
+        if(obstacle.y > 800){
 
             obstacle.destroy()
         }
+
     })
 
-    if (player.y > 600) {
+    
+    if(player.y > 600){
 
         bottomTimer += this.game.loop.delta / 1000
 
@@ -347,7 +433,7 @@ export default class GameScene extends Phaser.Scene{
             (3 - bottomTimer).toFixed(1)
         )
 
-        if (bottomTimer >= 3) {
+        if(bottomTimer >= 3){
 
             hitObstacle.call(this, player, null)
         }
@@ -358,11 +444,12 @@ export default class GameScene extends Phaser.Scene{
         warningText.setText('')
     }
 
+    
     laserHitboxes.getChildren().forEach((hitbox) => {
 
         const laser = hitbox.laser
 
-        if(!laser || !laser.active) {
+        if(!laser || !laser.active){
 
             hitbox.destroy()
             return
@@ -371,17 +458,24 @@ export default class GameScene extends Phaser.Scene{
         hitbox.x = laser.x
         hitbox.y = laser.y
         hitbox.rotation = laser.rotation
+
         hitbox.body.updateFromGameObject()
+
     })
+
 }
+
 }
+
 function spawnObstacle() {
     
     const x = Phaser.Math.Between(40, 360)
 
     const obstacle = obstacles.create(x, -50, 'asteroid')
 
-    obstacle.setVelocityY(obstacleSpeed)
+    obstacle.setVelocityY(
+        obstacleSpeed * worldSpeedMultiplier
+    )
 
     obstacle.setScale(0.1)
     obstacle.body.setCircle(obstacle.width * 0.25)
@@ -496,7 +590,7 @@ let laserCount = 1
         scene.tweens.add({
             targets: laser,
             angle: angle + 360,
-            duration: 2000,
+            duration: 2000/ worldSpeedMultiplier,
             repeat: -1
         })
         scene.time.delayedCall(5000, () => {
@@ -515,8 +609,10 @@ function spawnShurikenCrossfire() {
         )
         shuriken.setScale(0.12)
         shuriken.setVelocity(
-            Phaser.Math.Between(-250, 250),
+            Phaser.Math.Between(-250, 250)
+            * worldSpeedMultiplier,
             Phaser.Math.Between(250, 450)
+            * worldSpeedMultiplier
         )
         shuriken.setAngularVelocity(
             Phaser.Math.Between(-400, 400)
@@ -524,17 +620,159 @@ function spawnShurikenCrossfire() {
     }
 }
 function asteroidRain() {
-    const safeZone = Phaser.Math.Between(80, 320)
-    for( let i = 0; i < 15; i++) {
-        this.time.delayedCall(i * 120, () => {
-            let x = Phaser.Math.Between(0, 400)
-            while (Math.abs(x - safeZone) < 100){ 
-                x = Phaser.Math.Between(0, 400)
-            }
-            const asteroid = obstacles.create(x, -50, 'asteroid')
-            asteroid.setVelocityY(Phaser.Math.Between(350, 500))
-            asteroid.setScale(Phaser.Math.FloatBetween(0.08,0.15))
-            asteroid.setAngularVelocity(Phaser.Math.Between(-200,200))
-        })
+
+    const laneCount = 6
+
+    const laneWidth = 66
+
+    asteroidRainIntensity += 0.02
+
+    if (asteroidRainIntensity > 2) {
+
+        asteroidRainIntensity = 2
+
     }
+
+    let totalWaves = Math.floor(
+        8 * asteroidRainIntensity
+    )
+
+    let safeLane = Phaser.Math.Between(
+        1,
+        laneCount - 3
+    )
+    let secondSafeLane = safeLane + 1
+
+    let movementCooldown = 0
+
+    for (let wave = 0; wave < totalWaves; wave++) {
+
+        this.time.delayedCall(
+
+            wave * 260,
+
+            () => {
+
+                movementCooldown++
+
+                if (
+                    movementCooldown >= 2
+                ) {
+
+                    movementCooldown = 0
+
+                    const direction =
+                        Phaser.Math.RND.pick(
+                            [-1, 0, 1]
+                        )
+
+                    safeLane += direction
+
+                }
+
+                if (safeLane < 0) {
+
+                    safeLane = 0
+
+                }
+
+                if (
+                    safeLane > laneCount - 1
+                ) {
+
+                    safeLane = laneCount - 1
+
+                }
+
+                for (
+                    let lane = 0;
+                    lane < laneCount;
+                    lane++
+                ) {
+
+                    if (
+                        lane === safeLane ||
+                        lane === secondSafeLane
+                    ) {
+
+                        continue
+
+                    }
+
+                    if (
+                        Math.random() < 0.72
+                    ) {
+
+                        const x =
+                            (lane * laneWidth)
+                            + (laneWidth / 2)
+                            + Phaser.Math.Between(
+                                -6,
+                                6
+                            )
+
+                        const asteroid =
+                            obstacles.create(
+                                x,
+                                -50,
+                                'asteroid'
+                            )
+
+                        asteroid.setVelocityY(
+
+                            Phaser.Math.Between(
+                                360,
+                                500
+                            )
+                            * worldSpeedMultiplier
+
+                        )
+
+                        asteroid.setScale(
+
+                            Phaser.Math.FloatBetween(
+                                0.08,
+                                0.14
+                            )
+
+                        )
+
+                        asteroid.setAngularVelocity(
+
+                            Phaser.Math.Between(
+                                -220,
+                                220
+                            )
+
+                        )
+
+                        asteroid.body.setCircle(
+                            asteroid.width * 0.22
+                        )
+
+                        if (
+                            score > 100
+                        ) {
+
+                            asteroid.setVelocityX(
+
+                                Phaser.Math.Between(
+                                    -25,
+                                    25
+                                )
+
+                            )
+
+                        }
+
+                    }
+
+                }
+
+            }
+
+        )
+
+    }
+
 }
