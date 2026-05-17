@@ -8,7 +8,7 @@ let highScore = 0
 let scoreText
 let highScoreText
 let obstacleSpeed = 250
-let spawnDelay = 1000
+let spawnDelay = 750
 let isGameOver = false
 let shurikens
 let cursors
@@ -18,7 +18,7 @@ let bottomTimer = 0
 let warningText
 let laserHitboxes
 let acceleration = 16
-let decelaration = 7
+let decelaration = 9
 let moveSpeed = 0
 let exhaust
 let energy = 0
@@ -34,6 +34,22 @@ let worldSpeedMultiplier = 1
 let rainSafeZones = []
 let rainPatternIndex = 0
 let asteroidRainIntensity = 1
+let rainFlowDirection = 1
+let rainWaveCounter = 0
+let lastSafeLane = 2
+let shurikenPatternIndex = 0
+let shurikenSpawnRate = 4000
+let shurikenSpeedMultiplier = 1
+let currentThreatlevel = 0
+let activeAttackType = 'none'
+let attackChainCooldown = 0
+let laserAttackActive = false
+let rainAttackActive = false
+let shurikenAttackActive = false
+let directorMood = 'normal'
+let attackIntensity = 1
+let playerStressLevel = 0
+let safePhaseActive = false
 export default class GameScene extends Phaser.Scene{
     constructor(){
         super('GameScene')
@@ -82,7 +98,24 @@ export default class GameScene extends Phaser.Scene{
     'player')
         player.setAngle(180)
         player.setScale(0.08)
+        player.body.setSize(
+            82 / player.scaleX,
+            48 / player.scaleY)
+        player.body.updateFromGameObject()
+        console.log(
+            player.displayWidth,
+            player.displayHeight
+        )
+        player.body.setOffset(
+            2,
+            0
+        )
         player.setCollideWorldBounds(true)
+        console.log(
+            'BODY',
+            player.body.width,
+            player.body.height
+        )
         exhaust = this.add.image(
             player.x,
             player.y + 45,
@@ -184,7 +217,11 @@ export default class GameScene extends Phaser.Scene{
         this.time.addEvent({
             delay: 7000,
 
-            callback: startLaserAttack,
+            callback: () => {
+                if(score >= 30){
+                    startLaserAttack.call(this)
+                }
+            },
             callbackScope: this,
             loop: true
         })
@@ -202,9 +239,13 @@ export default class GameScene extends Phaser.Scene{
             this
         )
         this.time.addEvent({
-            delay: Phaser.Math.Between(10000, 18000),
+            delay: 12000,
 
-            callback: asteroidRain.bind(this),
+            callback: () => {
+                if(score >= 20){
+                    asteroidRain.call(this)
+                }
+            },
 
             callbackScope: this,
 
@@ -221,6 +262,7 @@ export default class GameScene extends Phaser.Scene{
     }
 update() {
 
+    updateDirectorAI.call(this)
     
     if(isBoosting && !isImmortal){
 
@@ -488,10 +530,51 @@ function hitObstacle(player, obstacle) {
     if (isGameOver || isImmortal) {
         return
     }
+    if(isImmortal && obstacle){
+        return
+    }
     isGameOver = true
     this.physics.pause()
 
-    this.scene.start('GameOverScene')
+    this.cameras.main.shake(
+        350,
+        0.02
+    )
+    player.setAngularVelocity(320)
+
+    player.setVelocity(
+        Phaser.Math.Between(
+            -120,
+            120
+        ),
+        420
+    )
+    this.tweens.add({
+        targets: player,
+        alpha: 0,
+        angle: player.angle + 180,
+        duraion: 1200,
+        ease: 'Cubic.easeIn',
+    })
+    this.time.delayedCall(
+        900,
+        () => {
+            this.cameras.main.fade(
+                600,
+                0,
+                0,
+                0
+            )
+        }
+    )
+    this.time.delayedCall(
+        1500,
+        () => {
+            this.scene.start(
+                'GameOverScene'
+            )
+        }
+    )
     
 }
 
@@ -530,13 +613,24 @@ function startObstacleSpawner() {
     })
 }
 function startLaserAttack() {
+    laserAttackActive = true
+    if(rainAttackActive){
+        return
+    }
+    activeAttackType = 'laser'
 let laserCount = 1
- if (score >= 20) {
+if(directorMood === 'overload'){
+    laserCount = 0
+}else if(safePhaseActive){
+    laserCount = 1
+}else{
+ if (score >= 45) {
         laserCount = 2
  }
- if (score >= 30){
+ if (score >= 70){
         laserCount = 3
  }
+}
  for(let i = 0; i < laserCount; i++) {
 
     const scene = this
@@ -596,34 +690,153 @@ let laserCount = 1
         scene.time.delayedCall(5000, () => {
             laserHitbox.destroy()
             laser.destroy()
+            laserAttackActive = false
             })
         })
     }
 }
 function spawnShurikenCrossfire() {
-    for(let i = 0; i < 4; i++) {
-        const shuriken = shurikens.create(
-            Phaser.Math.Between(0, 400),
-            -50,
-            'shuriken'
-        )
-        shuriken.setScale(0.12)
-        shuriken.setVelocity(
-            Phaser.Math.Between(-250, 250)
-            * worldSpeedMultiplier,
-            Phaser.Math.Between(250, 450)
-            * worldSpeedMultiplier
-        )
-        shuriken.setAngularVelocity(
-            Phaser.Math.Between(-400, 400)
+    shurikenAttackActive = true
+    activeAttackType = 'shuriken'
+    shurikenPatternIndex++
+    const pattern = shurikenPatternIndex % 4
+    let totalShurikens = 4
+    if(directorMood === 'overload'){
+        totalShurikens -= 2
+    }
+    if(safePhaseActive){
+        totalShurikens = 2
+    }
+    if(score > 50){
+        totalShurikens = 5
+    }
+    if(score > 100){
+        totalShurikens = 6
+    }
+    for(let i = 0;i < totalShurikens;i++){
+        let spawnX = 200
+        let spawnY = -50
+
+        let velocityX = 0
+        let velocityY = 0
+
+        //Left Sweep
+        if(pattern === 0){
+            spawnX = -50
+            spawnY = Phaser.Math.Between(
+                120,
+                500
+            )
+            velocityX = Phaser.Math.Between(
+                320,
+                460
+            )
+            velocityY = Phaser.Math.Between(
+                -80,
+                80
+            )
+        }
+        else if(pattern === 1){
+            spawnX = 450
+            spawnY = Phaser.Math.Between(
+                120,
+                500
+            )
+            velocityX = Phaser.Math.Between(
+                -460,
+                -320
+            )
+            velocityY = Phaser.Math.Between(
+                -80,
+                80
+            )
+        }
+        //Top Cross Path
+        else if(pattern === 2){
+            spawnX = Phaser.Math.Between(
+                40,
+                360
+            )
+            spawnY = -50
+            velocityX = Phaser.Math.Between(
+                -180,
+                180
+            )
+            velocityY = Phaser.Math.Between(
+                320,
+                520
+            )
+        }
+        //Diagonal
+        else{
+            spawnX = Phaser.Math.RND.pick(
+                [-50,450]
+            )
+            spawnY = Phaser.Math.Between(
+                100,
+                350
+            )
+            velocityX = spawnX < 0 ? Phaser.Math.Between(
+                250,
+                420
+            )
+            : Phaser.Math.Between(
+                -420,
+                -250
+            )
+            velocityY = Phaser.Math.Between(
+                180,
+                320
+            )
+        } 
+        this.time.delayedCall(
+            i * 180,
+            () => {
+                const shuriken = shurikens.create(
+                    spawnX,
+                    spawnY,
+                    'shuriken'
+                )
+                shuriken.setScale(Phaser.Math.FloatBetween(
+                    0.10,
+                    0.16
+                ))
+                shuriken.setVelocity(
+                    velocityX * worldSpeedMultiplier,
+                    velocityY * worldSpeedMultiplier
+                )
+                shuriken.setAngularVelocity(Phaser.Math.Between(
+                    -500,
+                    500
+                ))
+                shuriken.setAlpha(Phaser.Math.FloatBetween(
+                    0.75,
+                    1
+                ))
+                //tint
+                shuriken.setTint(
+                    0xffdddd
+                )
+                shuriken.setCollideWorldBounds(false)
+                shuriken.checkWorldBounds = true
+                shuriken.outOfBoundsKill = true
+            }
         )
     }
+    this.time.delayedCall(
+        3500,
+        () => {
+            shurikenAttackActive = false
+        }
+    )
 }
 function asteroidRain() {
+    rainAttackActive = true
+    activeAttackType = 'rain'
 
-    const laneCount = 6
+    const laneCount = 5
 
-    const laneWidth = 66
+    const laneWidth = 83
 
     asteroidRainIntensity += 0.02
 
@@ -636,14 +849,18 @@ function asteroidRain() {
     let totalWaves = Math.floor(
         8 * asteroidRainIntensity
     )
+    if(directorMood === 'overload'){
+        totalWaves -= 3
+    }
+    if(safePhaseActive){
+        totalWaves = 3
+    }
 
     let safeLane = Phaser.Math.Between(
         1,
         laneCount - 3
     )
-    let secondSafeLane = safeLane + 1
-
-    let movementCooldown = 0
+    let secondSafeLane = safeLane + 2
 
     for (let wave = 0; wave < totalWaves; wave++) {
 
@@ -653,22 +870,30 @@ function asteroidRain() {
 
             () => {
 
-                movementCooldown++
-
-                if (
-                    movementCooldown >= 2
-                ) {
-
-                    movementCooldown = 0
-
-                    const direction =
-                        Phaser.Math.RND.pick(
-                            [-1, 0, 1]
-                        )
-
-                    safeLane += direction
-
+                rainWaveCounter++
+                if(rainWaveCounter > 3){
+                    rainWaveCounter = 0
+                    if(Math.random() < 0.4){
+                        rainFlowDirection *= -1
+                    }
                 }
+                safeLane += rainFlowDirection
+
+                if(Math.random() < 0.25){
+                    safeLane += Phaser.Math.Between(
+                        -1,
+                        1
+                    )
+                }
+
+                if(
+                    Math.abs(
+                        safeLane - lastSafeLane
+                    ) > 2
+                ){
+                    safeLane = lastSafeLane
+                }
+                lastSafeLane = safeLane
 
                 if (safeLane < 0) {
 
@@ -698,10 +923,15 @@ function asteroidRain() {
                         continue
 
                     }
-
-                    if (
-                        Math.random() < 0.72
-                    ) {
+                    let rainDensity = 0.72
+                    if(directorMood === 'overload'){
+                        rainDensity = 0.45
+                    }
+                    if(safePhaseActive){
+                        rainDensity = 0.35
+                    }
+                    if(Math.random() < rainDensity)
+                    {
 
                         const x =
                             (lane * laneWidth)
@@ -736,6 +966,12 @@ function asteroidRain() {
                             )
 
                         )
+                        asteroid.setAlpha(
+                            Phaser.Math.FloatBetween(
+                                0.7,
+                                1
+                            )
+                        )
 
                         asteroid.setAngularVelocity(
 
@@ -749,6 +985,7 @@ function asteroidRain() {
                         asteroid.body.setCircle(
                             asteroid.width * 0.22
                         )
+                        asteroid.body.updateFromGameObject()
 
                         if (
                             score > 100
@@ -774,5 +1011,68 @@ function asteroidRain() {
         )
 
     }
-
+    this.time.delayedCall(
+        totalWaves * 260,
+        () => {
+            rainAttackActive = false
+        }
+    )
+}
+function updateDirectorAI(){
+    currentThreatlevel = 0
+    if(laserAttackActive){
+        currentThreatlevel += 4
+        activeAttackType = 'laser'
+    }
+    if(rainAttackActive){
+        currentThreatlevel += 3
+        activeAttackType = 'rain'
+    }
+    if(shurikenAttackActive){
+        currentThreatlevel += 2
+        activeAttackType = 'shuriken'
+    }
+    if(isImmortal){
+        currentThreatlevel -= 5
+        directorMood = 'recovery'
+    }
+    playerStressLevel = 0
+    if(player.y > 500){
+        playerStressLevel += 2
+    }
+    if(moveSpeed < 120){
+        playerStressLevel += 1
+    }
+    if(currentThreatlevel >= 7){
+        playerStressLevel += 3
+    }
+    if(currentThreatlevel <= 2 && !isImmortal){
+        safePhaseActive = true
+    }else{
+        safePhaseActive = false
+    }
+    attackIntensity = 1 + (score / 100)
+    attackIntensity = Phaser.Math.Clamp(
+        attackIntensity,
+        1,
+        3
+    )
+    if(playerStressLevel >= 5){
+        directorMood = 'overload'
+    }else if(safePhaseActive){
+        directorMood = 'pressure_build'
+    }else{
+        directorMood = 'normal'
+    }
+    if(attackChainCooldown > 0){
+        attackChainCooldown -= this.game.loop.delta
+    }
+    if(directorMood === 'overload'){
+        laserAttackActive = false
+    }
+    currentThreatlevel = Phaser.Math.Clamp(
+        currentThreatlevel,
+        0,
+        10
+    )
 }
