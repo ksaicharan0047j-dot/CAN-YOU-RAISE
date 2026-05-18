@@ -50,6 +50,14 @@ let directorMood = 'normal'
 let attackIntensity = 1
 let playerStressLevel = 0
 let safePhaseActive = false
+let shieldActive = false
+let shieldHealth = 1
+let shieldVisual
+let shieldPulse
+let shieldCoolDown = false
+let multiplierActive = false
+let multiplierTimer = 0
+let multiplierText
 export default class GameScene extends Phaser.Scene{
     constructor(){
         super('GameScene')
@@ -83,11 +91,18 @@ export default class GameScene extends Phaser.Scene{
             'exhaust',
             '/assets/images/effects/exhaust_clean.png'
         )
+        for(let i = 1; i <= 10;i++){
+            this.load.image(
+                'multiplier_' + i,
+                '/assets/images/powerups/Multiplier_' + i + '.png'
+            )
+        }
     }
     create() {
         score = 0
         isGameOver = false
         energy = 0
+        shieldActive = false
         this.physics.resume()
         console.log("Player Loaded")
         background = this.add.image(200, 350,
@@ -258,11 +273,41 @@ export default class GameScene extends Phaser.Scene{
             null,
             this
         )
+        shieldVisual = this.add.graphics()
+        shieldVisual.setDepth(10)
+        shieldVisual.setVisible(false)
+        shieldPulse = 0
+        if(!this.anims.exists('multiplier_spin')){
+        this.anims.create({
+            key: 'multiplier_spin',
+            frames: [
+                {key: 'multiplier_1'},
+                {key: 'multiplier_2'},
+                {key: 'multiplier_3'},
+                {key: 'multiplier_4'},
+                {key: 'multiplier_5'},
+                {key: 'multiplier_6'},
+                {key: 'multiplier_7'},
+                {key: 'multiplier_8'},
+                {key: 'multiplier_9'},
+                {key: 'multiplier_10'}
+            ],
+            frameRate: 14,
+            repeat: -1
+        })
+    }
         boostCircle = this.add.graphics()
     }
 update() {
 
     updateDirectorAI.call(this)
+    if(multiplierActive){
+        multiplierTimer -= this.game.loop.delta
+        if(multiplierTimer <= 0){
+            multiplierActive = false
+            multiplierTimer = 0
+        }
+    }
     
     if(isBoosting && !isImmortal){
 
@@ -455,6 +500,48 @@ update() {
     exhaust.y = player.y + 45
     exhaust.setAngle(player.angle)
 
+    shieldVisual.clear()
+    if(shieldActive){
+        shieldPulse += 0.08
+        const pulseSize = 34 + Math.sin(shieldPulse) * 3
+
+        //ouuter glow
+        shieldVisual.lineStyle(
+            5,
+            0x00ffee,
+            0.25
+        )
+        shieldVisual.strokeCircle(
+            player.x,
+            player.y,
+            pulseSize + 6
+        )
+        //MAIN RING
+        shieldVisual.lineStyle(
+            3,
+            0x66ffff,
+            0.9
+        )
+        shieldVisual.strokeCircle(
+            player.x,
+            player.y,
+            pulseSize
+        )
+        //Inner Core
+        shieldVisual.fillStyle(
+            0x00ffee,
+            0.08
+        )
+        shieldVisual.fillCircle(
+            player.x,
+            player.y,
+            pulseSize - 8
+        )
+        shieldVisual.setVisible(true)
+    }else{
+        shieldVisual.setVisible(false)
+    }
+
     
     obstacles.getChildren().forEach((obstacle) => {
 
@@ -527,10 +614,28 @@ function spawnObstacle() {
     obstacle.outOfBoundsKill = true
 }
 function hitObstacle(player, obstacle) {
-    if (isGameOver || isImmortal) {
+    if(isGameOver || shieldCoolDown){
         return
     }
-    if(isImmortal && obstacle){
+    if(isImmortal){
+        return
+    }
+    if(shieldActive){
+        shieldActive = false
+        shieldVisual.clear()
+        this.cameras.main.flash(
+            120,
+            0,
+            255,
+            255
+        )
+        this.cameras.main.shake(
+            180,
+            0.008
+        )
+        if(obstacle){
+            obstacle.destroy()
+        }
         return
     }
     isGameOver = true
@@ -585,13 +690,23 @@ function increaseScore() {
     if(isImmortal){
         score += 3
     }else{
-        score++
+        if(multiplierActive){
+            score += 2
+        }else{
+            score++
+        }
     }
     if (score > highScore) {
         highScore = score
         localStorage.setItem('highScore', highScore)
     }
     scoreText.setText('Score: ' + score)
+    if(score >= 20){
+        spawnShieldPowerup.call(this)
+    }
+    if(score >= 20){
+        spawnMultiplierPowerup.call(this)
+    }
     highScoreText.setText('HIGH SCORE: ' + highScore)
     if (score % 30 == 0) {
         obstacleSpeed += 50
@@ -1074,5 +1189,97 @@ function updateDirectorAI(){
         currentThreatlevel,
         0,
         10
+    )
+}
+function spawnShieldPowerup(){
+    if(Phaser.Math.Between(1, 40) !== 1){
+        return
+    }
+    if(shieldActive){
+        return
+    }
+    const shieldOrb = this.add.circle(
+        Phaser.Math.Between(
+            60,
+            340
+        ),
+        -50,
+        16,
+        0x00ffee,
+        0.9
+    )
+    this.physics.add.existing(
+        shieldOrb
+    )
+    shieldOrb.body.setVelocityY(180)
+    shieldOrb.body.setAllowGravity(false)
+    //Glow effect
+    this.tweens.add({
+        targets: shieldOrb,
+        alpha: 0.4,
+        yoyo: true,
+        repeat: -1,
+        duration: 500
+    })
+    this.physics.add.overlap(
+        player,
+        shieldOrb,
+        () => {
+            shieldActive = true
+            shieldHealth = 1
+            this.cameras.main.flash(
+                180,
+                0,
+                255,
+                255
+            )
+            shieldOrb.destroy()
+        },
+        null,
+        this
+    )
+}
+function spawnMultiplierPowerup(){
+    if(Phaser.Math.Between(1, 1) !== 1){
+        return
+    }
+    if(multiplierActive){
+        return
+    }
+    const multiplier = this.physics.add.sprite(
+        Phaser.Math.Between(
+            60,
+            340
+        ),
+        -50,
+        'multiliper_1'
+    )
+    multiplier.play('multiplier_spin')
+    multiplier.setScale(0.08)
+    multiplier.setDepth(5)
+    multiplier.setVelocity(
+        Phaser.Math.Between(
+            -20,
+            20
+        ),
+        140
+    )
+    multiplier.body.setAllowGravity(false)
+    this.physics.add.overlap(
+        player,
+        multiplier,
+        () => {
+            multiplierActive = true
+            multiplierTimer = 10000
+            this.cameras.main.flash(
+                180,
+                255,
+                60,
+                60
+            )
+            multiplier.destroy()
+        },
+        null,
+        this
     )
 }
