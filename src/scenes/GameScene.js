@@ -58,6 +58,12 @@ let shieldCoolDown = false
 let multiplierActive = false
 let multiplierTimer = 0
 let multiplierText
+let repellentActive = false
+let repellentTimer = 0
+let repellentRadius = 160
+let repellentParticles = []
+let repellentPulse = 0
+let repellentOrb
 export default class GameScene extends Phaser.Scene{
     constructor(){
         super('GameScene')
@@ -151,7 +157,22 @@ export default class GameScene extends Phaser.Scene{
         shurikens = this.physics.add.group()
         lasers = this.physics.add.group()
         laserHitboxes = this.physics.add.group()
-
+        const orbGraphics = this.add.graphics()
+        orbGraphics.fillStyle(
+            0xffee00,
+            1
+        )
+        orbGraphics.fillCircle(
+            16,
+            16,
+            16
+        )
+        orbGraphics.generateTexture(
+            'repellent_orb',
+            32,
+            32
+        )
+        orbGraphics.destroy()
         
 
         highScoreText = this.add.text(200, 20, 'HIGH SCORE: 0',{
@@ -296,7 +317,29 @@ export default class GameScene extends Phaser.Scene{
             repeat: -1
         })
     }
-        boostCircle = this.add.graphics()
+    for(let i = 0; i < 12; i++){
+        const particle = this.add.circle(
+            player.x,
+            player.y,
+            Phaser.Math.Between(
+                2,
+                4
+            ),
+            0xffee00,
+            1
+        )
+        particle.setVisible(false)
+        particle.setBlendMode(
+            Phaser.BlendModes.ADD
+        )
+        particle.orbitAngle = (360/12) * i
+        particle.orbitDistance = Phaser.Math.Between(
+            38,
+            45
+        )
+        repellentParticles.push(particle)
+    }
+    boostCircle = this.add.graphics()
     }
 update() {
 
@@ -343,7 +386,13 @@ update() {
         }
 
     }
-
+    if(repellentActive){
+        repellentTimer -= this.game.loop.delta
+        if(repellentTimer <= 0){
+            repellentActive = false
+            repellentTimer = 0
+        }
+    }
     
     if(energy >= maxEnergy && !isImmortal){
 
@@ -542,8 +591,56 @@ update() {
         shieldVisual.setVisible(false)
     }
 
+    if(repellentActive){
+        repellentPulse += 0.05
+        repellentParticles.forEach(
+            (particle,index) => {
+                particle.setVisible(true)
+                particle.orbitAngle += 2.5
+                const angle = Phaser.Math.DegToRad(particle.orbitAngle)
+                const wave = Math.sin(repellentPulse + index) * 2
+                const finalDistance = particle.orbitDistance + wave
+                particle.x = player.x + Math.cos(angle) * finalDistance
+                particle.y = player.y + Math.sin(angle) * finalDistance 
+                particle.setAlpha(0.7 + Math.sin(repellentPulse + index) * 0.25)
+            }
+        )
+    }else{
+        repellentParticles.forEach((particle) => {
+            particle.setVisible(false)
+        })
+    }
+
     
     obstacles.getChildren().forEach((obstacle) => {
+
+        if(repellentActive){
+            const distance = Phaser.Math.Distance.Between(
+                player.x,
+                player.y,
+                obstacle.x,
+                obstacle.y
+            )
+            if(distance < repellentRadius){
+                const angle = Phaser.Math.Angle.Between(
+                    player.x,
+                    player.y,
+                    obstacle.x,
+                    obstacle.y
+                )
+                const force = (repellentRadius - distance) * 0.045
+                obstacle.body.velocity.x = Phaser.Math.Linear(
+                    obstacle.body.velocity.x,
+                    obstacle.body.velocity.x + Math.cos(angle) * 120,
+                    force
+                )
+                obstacle.body.velocity.y = Phaser.Math.Linear(
+                    obstacle.body.velocity.y,
+                    obstacle.body.velocity.y + Math.sin(angle) * 120,
+                    force
+                )
+            }
+        }
 
         if(obstacle.y > 800){
 
@@ -706,6 +803,9 @@ function increaseScore() {
     }
     if(score >= 20){
         spawnMultiplierPowerup.call(this)
+    }
+    if(score >= 20){
+        spawnRepellentPowerup.call(this)
     }
     highScoreText.setText('HIGH SCORE: ' + highScore)
     if (score % 30 == 0) {
@@ -1240,7 +1340,7 @@ function spawnShieldPowerup(){
     )
 }
 function spawnMultiplierPowerup(){
-    if(Phaser.Math.Between(1, 1) !== 1){
+    if(Phaser.Math.Between(1, 40) !== 1){
         return
     }
     if(multiplierActive){
@@ -1252,7 +1352,7 @@ function spawnMultiplierPowerup(){
             340
         ),
         -50,
-        'multiliper_1'
+        'multiplier_1'
     )
     multiplier.play('multiplier_spin')
     multiplier.setScale(0.08)
@@ -1271,13 +1371,83 @@ function spawnMultiplierPowerup(){
         () => {
             multiplierActive = true
             multiplierTimer = 10000
-            this.cameras.main.flash(
+            this.cameras.main.flash (
                 180,
                 255,
                 60,
                 60
             )
             multiplier.destroy()
+        },
+        null,
+        this
+    )
+}
+function spawnRepellentPowerup(){
+    if(Phaser.Math.Between(1, 40) !== 1){
+        return
+    }
+    if(repellentActive){
+        return
+    }
+    repellentOrb = this.physics.add.image(
+        Phaser.Math.Between(
+            60,
+            340
+        ),
+        -50,
+        'repellent_orb'
+    )
+    repellentOrb.setScale(0.045)
+
+repellentOrb.setAlpha(0.9)
+
+repellentOrb.body.setAllowGravity(
+    false
+)
+
+repellentOrb.setVelocity(
+
+    Phaser.Math.Between(
+        -20,
+        20
+    ),
+
+    150
+
+)
+    this.physics.add.existing(repellentOrb)
+    repellentOrb.body.setAllowGravity(false)
+    repellentOrb.body.setVelocity(Phaser.Math.Between(
+        -20,
+        20
+        ),
+        150
+    )
+    this.tweens.add({
+        targets: repellentOrb,
+        alpha: 0.45,
+        scaleX: 1.25,
+        scaleY: 1.25,
+        yoyo: true,
+        repeat: -1,
+        duration: 450
+    })
+    //Pickup
+    this.physics.add.overlap(
+        player,
+        repellentOrb,
+        () => {
+            console.log('Repelrnt Picked up')
+            repellentActive = true
+            repellentTimer = 10000
+            this.cameras.main.flash(
+                200,
+                180,
+                120,
+                255
+            )
+            repellentOrb.destroy()
         },
         null,
         this
