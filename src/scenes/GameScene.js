@@ -74,6 +74,12 @@ let pauseText
 let resumeButton
 let restartButton
 let isPaused = false
+let totalCoins = 0
+let coinText
+let coinIcon
+let coinPopupText
+let activeCoins = 0
+let maxCoins = 1
 export default class GameScene extends Phaser.Scene{
     constructor(){
         super('GameScene')
@@ -113,8 +119,20 @@ export default class GameScene extends Phaser.Scene{
                 '/assets/images/powerups/Multiplier_' + i + '.png'
             )
         }
+        for(let i = 1; i <= 11;i++){
+            this.load.image(
+                'Coin_' + i,
+                '/assets/images/coins/Coin_' + i + '.png'
+            )
+        }
     }
     create() {
+        const savedCoins = localStorage.getItem('totalCoins')
+        if(savedCoins){
+            totalCoins = parseInt(savedCoins)
+        }else{
+            totalCoins = 0
+        }
         score = 0
         isGameOver = false
         energy = 0
@@ -410,6 +428,26 @@ export default class GameScene extends Phaser.Scene{
             repeat: -1
         })
     }
+    if(!this.anims.exists('coin_spin')){
+        this.anims.create({
+            key: 'coin_spin',
+            frames: [
+                {key: 'Coin_1'},
+                {key: 'Coin_2'},
+                {key: 'Coin_3'},
+                {key: 'Coin_4'},
+                {key: 'Coin_5'},
+                {key: 'Coin_6'},
+                {key: 'Coin_7'},
+                {key: 'Coin_8'},
+                {key: 'Coin_9'},
+                {key: 'Coin_10'},
+                {key: 'Coin_11'}
+            ],
+            frameRate: 18,
+            repeat: -1
+        })
+    }
     for(let i = 0; i < 12; i++){
         const particle = this.add.circle(
             player.x,
@@ -465,6 +503,43 @@ export default class GameScene extends Phaser.Scene{
             this.scene.restart()
         }
     )
+    coinIcon = this.add.image(
+        40,
+        40,
+        'Coin_1'
+    )
+    coinIcon.setScale(0.08)
+    coinIcon.setVisible(false)
+    coinIcon.setDepth(200)
+
+    coinText = this.add.text(
+        70,
+        40,
+        '',
+        {
+            fontSize: '28px',
+            fill: '#ffdd33',
+            fontStyle: 'bold',
+            stroke: '#000000',
+            strokeThickness: 5
+        }
+    )
+    .setOrigin(0,0.5)
+    .setDepth(200)
+    .setVisible(false)
+
+    coinPopupText = this.add.text(
+        110,
+        15,
+        '',
+        {
+            fontSize: '24px',
+            fill: '#ffff66',
+            fontStyle: 'bold'
+        }
+    )
+    .setDepth(201)
+    .setVisible(false)
     }
 update() {
     if(isPaused){
@@ -777,6 +852,14 @@ update() {
         }
 
     })
+    this.children.list.forEach((child) => {
+        if(child.texture && child.texture.key && child.texture.key.includes('Coin_')){
+            if(child.y > 800){
+                activeCoins--
+                child.destroy()
+            }
+        }
+    })
 
     
     if(player.y > 600){
@@ -927,6 +1010,7 @@ function increaseScore() {
         localStorage.setItem('highScore', highScore)
     }
     scoreText.setText('Score: ' + score)
+    spawnCoin.call(this)
     highScoreText.setText('HIGH SCORE: ' + highScore)
     if (score % 30 == 0) {
         obstacleSpeed += 50
@@ -1610,4 +1694,162 @@ function updatePowerupDirector() {
     activePowerups++
     lastPowerupScore = score
     powerupSpawnCooldown = 5000
+}
+
+function spawnCoin(){
+    if(activeCoins >= maxCoins){
+        return
+    }
+    let spawnChance = 120
+    if(score >= 30){
+        spawnChance = 90
+    }
+    if(score >= 60){
+        spawnChance = 65
+    }
+    if(score >= 80){
+        spawnChance = 10
+    }
+    if(score >= 90){
+        spawnChance = 45
+    }
+    if(Phaser.Math.Between(
+        1,
+        spawnChance
+    ) !== 1){
+        return
+    }
+    activeCoins++
+    let coinX = Phaser.Math.Between(
+        50,
+        350
+    )
+    if(Math.random() < 0.45){
+        coinX = Phaser.Math.RND.pick([
+            40,
+            360
+        ])
+    }
+    const coin = this.physics.add.sprite(
+        coinX,
+        -50,
+        'Coin_1'
+    )
+    coin.play('coin_spin')
+    coin.setScale(0.09)
+    coin.setDepth(6)
+    coin.body.setAllowGravity(false)
+    coin.setVelocity(Phaser.Math.Between(-15, 15), 165 * worldSpeedMultiplier)
+    coin.setBlendMode(Phaser.BlendModes.ADD)
+    coin.preFX?.addGlow(
+        0xffdd33,
+        4,
+        0,
+        false,
+        0.12,
+        10
+    )
+    this.tweens.add({
+        targets: coin,
+        scaleX: 0.11,
+        scaleY: 0.11,
+        alpha: 0.82,
+        yoyo: true,
+        repeat: -1,
+        duration: 350
+    })
+    this.time.addEvent({
+        delay: 80,
+        loop: true,
+        callback: () => {
+            if(!coin.active){
+                return
+            }
+            const particle = this.add.circle(
+                coin.x + Phaser.Math.Between(
+                    -8,
+                    8
+                ),
+                coin.y + Phaser.Math.Between(
+                    -8,
+                    8
+                ),
+                Phaser.Math.Between(
+                    1,
+                    3
+                ),
+                0xffdd33,
+                0.9
+            )
+            particle.setBlendMode(Phaser.BlendModes.ADD)
+            this.tweens.add({
+                targets:particle,
+                alpha: 0,
+                scaleX: 0,
+                scaleY: 0,
+                y: particle.y-12,
+                duration: 500,
+                onComplete:()  =>  {
+                particle.destroy()
+                }          
+            })
+        }
+    })
+    this.physics.add.overlap(
+        player,
+        coin,
+        () => {
+            totalCoins++
+            localStorage.setItem(
+                'totalCoins',
+                totalCoins
+            )
+            coinIcon.setVisible(true)
+            coinText.setVisible(true)
+            coinPopupText.setVisible(true)
+            coinIcon.alpha = 1
+            coinText.alpha = 1
+            coinPopupText.alpha = 1
+            coinText.setText(totalCoins - 1)
+            coinPopupText.setText('+1')
+            coinPopupText.y = 15
+            this.tweens.add({
+                targets: coinPopupText,
+                y: -5,
+                alpha: 0,
+                duration: 700,
+                ease: 'Power2'
+            })
+            this.time.delayedCall(
+                350,
+                () => {
+                    coinText.setText(totalCoins)
+                }
+            )
+            this.time.delayedCall(
+                220,
+                () =>{
+                    this.tweens.add({
+                        targets: [coinIcon, coinText],
+                        alpha: 0,
+                        duraion: 500,
+                        onComplete: () => {
+                            coinIcon.setVisible(false)
+                            coinText.setVisible(false)
+                        }
+                    })
+                }
+            )
+            this.cameras.main.flash(
+                120,
+                255,
+                220,
+                120
+            )
+            activeCoins--
+            coin.destroy()
+        },
+        null,
+        this
+    )
 }
