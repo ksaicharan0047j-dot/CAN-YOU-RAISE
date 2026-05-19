@@ -64,6 +64,16 @@ let repellentRadius = 160
 let repellentParticles = []
 let repellentPulse = 0
 let repellentOrb
+let activePowerups = 0
+let maxPowerups = 2
+let powerupSpawnCooldown = 0
+let lastPowerupScore = 0
+let pauseButton
+let pauseOverlay
+let pauseText
+let resumeButton
+let restartButton
+let isPaused = false
 export default class GameScene extends Phaser.Scene{
     constructor(){
         super('GameScene')
@@ -232,8 +242,91 @@ export default class GameScene extends Phaser.Scene{
                 fontStyle: 'bold'
             }
         ).setOrigin(0.5)
-        
-        
+        pauseButton = this.add.text(
+            355,
+            25,
+            'II',
+            {
+                fontSize: '34px',
+                fill: '#ffffff',
+                fontStyle: 'bold',
+                backgroundColor: '#00000088',
+                padding: {
+                    left: 10,
+                    right: 10,
+                    top: 2,
+                    bottom: 2
+                }
+            }
+        )
+        .setOrigin(0.5)
+        .setInteractive()
+
+        pauseOverlay = this.add.rectangle(
+            200,
+            350,
+            400,
+            700,
+            0x000000,
+            0.72
+        )
+        pauseOverlay.setVisible(false)
+        pauseOverlay.setDepth(100)
+        pauseText = this.add.text(
+            200,
+            220,
+            'PAUSED',
+            {
+                fontSize: '52px',
+                fill: '#ffffff',
+                fontStyle: 'bold'
+            }
+        )
+        .setOrigin(0.5)
+        .setDepth(101)
+        .setVisible(false)
+
+        resumeButton = this.add.text(
+            200,
+            340,
+            'RESUME',
+            {
+                fontSize: '34px',
+                fill: '#00ffcc',
+                backgroundColor: '#111111',
+                padding: {
+                    left: 18,
+                    right: 18,
+                    top: 10,
+                    bottom: 10 
+                }
+            }
+        )
+        .setOrigin(0.5)
+        .setInteractive()
+        .setDepth(101)
+        .setVisible(false)
+
+        restartButton = this.add.text(
+            200,
+            430,
+            'RESTART',
+            {
+                fontSize: '32px',
+                fill: '#ff6666',
+                backgroundColor: '#111111',
+                padding: {
+                    left: 18,
+                    right: 18,
+                    top: 10,
+                    bottom: 10
+                }
+            }
+        )
+        .setOrigin(0.5)
+        .setInteractive()
+        .setDepth(101)
+        .setVisible(false)
 
         startObstacleSpawner.call(this)
         this.time.addEvent({
@@ -340,10 +433,46 @@ export default class GameScene extends Phaser.Scene{
         repellentParticles.push(particle)
     }
     boostCircle = this.add.graphics()
+    pauseButton.on(
+        'pointerdown',
+        () => {
+            if(isPaused){
+                return
+            }
+            isPaused = true
+            this.physics.pause()
+            pauseOverlay.setVisible(true)
+            pauseText.setVisible(true)
+            resumeButton.setVisible(true)
+            restartButton.setVisible(true)
+        }
+    )
+    resumeButton.on(
+        'pointerdown',
+        () => {
+            isPaused = false
+            this.physics.resume()
+            pauseOverlay.setVisible(false)
+            pauseText.setVisible(false)
+            resumeButton.setVisible(false)
+            restartButton.setVisible(false)
+        }
+    )
+    restartButton.on(
+        'pointerdown',
+        () => {
+            isPaused = false
+            this.scene.restart()
+        }
+    )
     }
 update() {
+    if(isPaused){
+        return
+    }
 
     updateDirectorAI.call(this)
+    updatePowerupDirector.call(this)
     if(multiplierActive){
         multiplierTimer -= this.game.loop.delta
         if(multiplierTimer <= 0){
@@ -798,15 +927,6 @@ function increaseScore() {
         localStorage.setItem('highScore', highScore)
     }
     scoreText.setText('Score: ' + score)
-    if(score >= 20){
-        spawnShieldPowerup.call(this)
-    }
-    if(score >= 20){
-        spawnMultiplierPowerup.call(this)
-    }
-    if(score >= 20){
-        spawnRepellentPowerup.call(this)
-    }
     highScoreText.setText('HIGH SCORE: ' + highScore)
     if (score % 30 == 0) {
         obstacleSpeed += 50
@@ -1333,6 +1453,7 @@ function spawnShieldPowerup(){
                 255,
                 255
             )
+            activePowerups--
             shieldOrb.destroy()
         },
         null,
@@ -1377,6 +1498,7 @@ function spawnMultiplierPowerup(){
                 60,
                 60
             )
+            activePowerups--
             multiplier.destroy()
         },
         null,
@@ -1447,9 +1569,45 @@ repellentOrb.setVelocity(
                 120,
                 255
             )
+            activePowerups--
             repellentOrb.destroy()
         },
         null,
         this
     )
+}
+function updatePowerupDirector() {
+    if(powerupSpawnCooldown > 0){
+        powerupSpawnCooldown -= this.game.loop.delta
+    }
+    if(score < 20){
+        return
+    }
+    if(activePowerups >= maxPowerups){
+        return
+    }
+    if(score - lastPowerupScore < 12){
+        return
+    }
+    if(powerupSpawnCooldown > 0){
+        return
+    }
+    if(Phaser.Math.Between(1, 100) > 18){
+        return
+    }
+    const powerupType = Phaser.Math.RND.pick([
+        'shield',
+        'multiplier',
+        'repellent'
+    ])
+    if(powerupType === 'shield'){
+        spawnShieldPowerup.call(this)
+    }else if(powerupType === 'multiplier'){
+        spawnMultiplierPowerup.call(this)
+    }else{
+        spawnRepellentPowerup.call(this)
+    }
+    activePowerups++
+    lastPowerupScore = score
+    powerupSpawnCooldown = 5000
 }
