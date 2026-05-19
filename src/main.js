@@ -3,6 +3,7 @@ import './style.css'
 import MenuScene from './scenes/MenuScene'
 import GameScene from './scenes/GameScene'
 import GameOverScene from './scenes/GameOverScene'
+import ShopScene from './scenes/ShopScene'
 
 const config = {
     type: Phaser.AUTO,
@@ -25,7 +26,8 @@ const config = {
     scene: [
         MenuScene,
         GameScene,
-        GameOverScene
+        GameOverScene,
+        ShopScene
     ]
 }
 

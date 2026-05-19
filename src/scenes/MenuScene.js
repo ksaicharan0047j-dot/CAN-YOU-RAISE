@@ -122,9 +122,7 @@ export default class MenuScene extends Phaser.Scene{
         'pointerdown',
         () => {
 
-            console.log(
-                'SHOP CLICKED'
-            )
+            this.scene.start('ShopScene')
 
         }
     )
