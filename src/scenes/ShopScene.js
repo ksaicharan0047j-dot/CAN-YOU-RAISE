@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+let allActionsButtons = []
 export default class ShopScene extends
 Phaser.Scene{
     constructor(){
@@ -7,19 +8,24 @@ Phaser.Scene{
     preload(){
         this.load.image(
             'defaultShip',
-            '/assets/images/player/Boss_Full.png'
+            'assets/images/player/Boss_Full.png'
         )
         this.load.image(
             'scoreShip',
-            '/assets/images/player/scoreship.png'
+            'assets/images/player/scoreship.png'
         )
         this.load.image(
             'titanShip',
-            '/assets/images/player/titanShip.png'
+            'assets/images/player/titanShip.png'
         )
     }
     create(){
+        allActionsButtons = []
         this.cameras.main.setBackgroundColor('#060606')
+        let ownedShips = JSON.parse(
+            localStorage.getItem('ownedShips')
+        ) || ['default']
+        let equippedShip = localStorage.getItem('equippedShip') || 'default'
         this.add.text(
             200,
             45,
@@ -60,7 +66,9 @@ Phaser.Scene{
             'FREE',
             'defaultShip',
             '#666666',
-            'NO ATTRIBUTES'
+            'NO ATTRIBUTES',
+            'default',
+            0,
         )
         //score ship
         this.createShipCard(
@@ -70,17 +78,21 @@ Phaser.Scene{
             '0 COINS',
             'scoreShip',
             '#00bbff',
-            '+2 FOR EVERY 1.5 SECONDS'
+            '+2 FOR EVERY 1.5 SECONDS',
+            'score',
+            5,
         )
         //titan ship
         this.createShipCard(
             200,
             450,
             'TITAN SHIP',
-            '0 COINS',
+            '20 COINS',
             'titanShip',
-            '#ffaaoo',
-            'PERMANENT ASTEROID REPELLANT + FASTER SCORING'
+            '#ffaa00',
+            'PERMANENT ASTEROID REPELLANT + FASTER SCORING',
+            'titan',
+            20,
         )
         //secret ship
         const secretBox = this.add.rectangle(
@@ -161,7 +173,9 @@ Phaser.Scene{
         cost,
         texture,
         color,
-        attribute
+        attribute,
+        shipId,
+        price,
     ){
         const box = this.add.rectangle(
             x,
@@ -237,6 +251,136 @@ Phaser.Scene{
                     duration: 150
                 })
                 box.setScale(1)
+            }
+        )
+        const actionButton = this.add.text(
+            x + 90,
+            y + 16,
+            "",
+            {
+                fontSize: '14px',
+                fill: '#ffffff',
+                backgroundColor: '#222222',
+                padding: {
+                    left: 10,
+                    right: 10,
+                    top: 5,
+                    bottom: 5
+                }
+            }
+        )
+        .setOrigin(0.5)
+        .setInteractive()
+        allActionsButtons.push({
+            button: actionButton,
+            shipId: shipId,
+        })
+        const refreshAllButtons = () => {
+
+            const currentEquipped =
+                localStorage.getItem(
+                    'equippedShip'
+                )
+
+            const currentOwned =
+                JSON.parse(
+                    localStorage.getItem(
+                        'ownedShips'
+                    )
+                ) || ['default']
+
+            allActionsButtons.forEach(
+                (item) => {
+
+                    if(
+                        currentEquipped === item.shipId
+                    ){
+
+                        item.button.setText(
+                            'EQUIPPED'
+                        )
+
+                    }
+                    else if(
+                        currentOwned.includes(
+                            item.shipId
+                        )
+                    ){
+
+                        item.button.setText(
+                            'EQUIP'
+                        )
+
+                    }
+                    else{
+
+                        item.button.setText(
+                            'BUY'
+                        )
+
+                    }
+
+                }
+            )
+
+        }
+        refreshAllButtons()
+        actionButton.on(
+            'pointerdown',
+            () => {
+
+                let ownedShips =
+                    JSON.parse(
+                        localStorage.getItem(
+                            'ownedShips'
+                        )
+                    ) || ['default']
+
+                let totalCoins =
+                    parseInt(
+                        localStorage.getItem(
+                            'totalCoins'
+                        )
+                    ) || 0
+
+                if(
+                    !ownedShips.includes(shipId)
+                ){
+
+                    if(totalCoins >= price){
+
+                        totalCoins -= price
+
+                        ownedShips.push(shipId)
+
+                        localStorage.setItem(
+                            'totalCoins',
+                            totalCoins
+                        )
+
+                        localStorage.setItem(
+                            'ownedShips',
+                            JSON.stringify(
+                                ownedShips
+                            )
+                        )
+
+                    }
+                    else{
+
+                        return
+
+                    }
+
+                }
+
+                localStorage.setItem(
+                    'equippedShip',
+                    shipId
+                )
+
+                refreshAllButtons()
+
             }
         )
     }

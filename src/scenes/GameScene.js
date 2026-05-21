@@ -80,6 +80,9 @@ let coinIcon
 let coinPopupText
 let activeCoins = 0
 let maxCoins = 1
+let equippedShip = 'default'
+let scoreInterval = 2000
+let titanRepellentPassive = false
 export default class GameScene extends Phaser.Scene{
     constructor(){
         super('GameScene')
@@ -90,8 +93,16 @@ export default class GameScene extends Phaser.Scene{
         'assets/images/backgrounds/Space_BG_02.png'
         )
         this.load.image(
-            'player',
+            'defaultShip',
             'assets/images/player/Boss_Full.png'
+        )
+        this.load.image(
+            'scoreship',
+            'assets/images/player/scoreship.png'
+        )
+        this.load.image(
+            'titanShip',
+            'assets/images/player/titanShip.png'
         )
         this.load.image(
             'asteroid',
@@ -127,6 +138,16 @@ export default class GameScene extends Phaser.Scene{
         }
     }
     create() {
+        equippedShip = localStorage.getItem('equippedShip') || 'default'
+        scoreInterval = 2000
+        titanRepellentPassive = false
+        if(equippedShip === 'score'){
+            scoreInterval = 1500
+        }else if(equippedShip === 'titan'){
+            scoreInterval = 1500
+            titanRepellentPassive = true
+            repellentActive = true
+        }
         const savedCoins = localStorage.getItem('totalCoins')
         if(savedCoins){
             totalCoins = parseInt(savedCoins)
@@ -143,8 +164,15 @@ export default class GameScene extends Phaser.Scene{
     'background')
         background.setDisplaySize(400, 700)
 
+        let playerTexture = 'defaultShip'
+        if(equippedShip === 'score'){
+            playerTexture = 'scoreship'
+        }else if(equippedShip === 'titan'){
+            playerTexture = 'titanShip'
+        }
+
         player = this.physics.add.image(200, 600,
-    'player')
+        playerTexture)
         player.setAngle(180)
         player.setScale(0.08)
         player.body.setSize(
@@ -348,7 +376,7 @@ export default class GameScene extends Phaser.Scene{
 
         startObstacleSpawner.call(this)
         this.time.addEvent({
-            delay: 2000,
+            delay: scoreInterval,
             callback: increaseScore,
             callbackScope: this,
             loop: true
@@ -479,6 +507,8 @@ export default class GameScene extends Phaser.Scene{
             }
             isPaused = true
             this.physics.pause()
+            this.time.paused = true
+            this.tweens.pauseAll()
             pauseOverlay.setVisible(true)
             pauseText.setVisible(true)
             resumeButton.setVisible(true)
@@ -490,6 +520,8 @@ export default class GameScene extends Phaser.Scene{
         () => {
             isPaused = false
             this.physics.resume()
+            this.time.paused = false
+            this.tweens.resumeAll()
             pauseOverlay.setVisible(false)
             pauseText.setVisible(false)
             resumeButton.setVisible(false)
@@ -818,31 +850,23 @@ update() {
     
     obstacles.getChildren().forEach((obstacle) => {
 
-        if(repellentActive){
+        if(repellentActive || titanRepellentPassive){
             const distance = Phaser.Math.Distance.Between(
                 player.x,
                 player.y,
                 obstacle.x,
                 obstacle.y
             )
-            if(distance < repellentRadius){
+            if(distance < 70){
                 const angle = Phaser.Math.Angle.Between(
                     player.x,
                     player.y,
                     obstacle.x,
                     obstacle.y
                 )
-                const force = (repellentRadius - distance) * 0.045
-                obstacle.body.velocity.x = Phaser.Math.Linear(
-                    obstacle.body.velocity.x,
-                    obstacle.body.velocity.x + Math.cos(angle) * 120,
-                    force
-                )
-                obstacle.body.velocity.y = Phaser.Math.Linear(
-                    obstacle.body.velocity.y,
-                    obstacle.body.velocity.y + Math.sin(angle) * 120,
-                    force
-                )
+                const pushStrength = 3.5
+                obstacle.x += Math.cos(angle) * pushStrength
+                obstacle.y += Math.sin(angle) * pushStrength
             }
         }
 
@@ -949,6 +973,7 @@ function hitObstacle(player, obstacle) {
     }
     isGameOver = true
     this.physics.pause()
+    
 
     this.cameras.main.shake(
         350,
