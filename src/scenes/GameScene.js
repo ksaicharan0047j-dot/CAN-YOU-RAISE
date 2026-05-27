@@ -147,6 +147,11 @@ export default class GameScene extends Phaser.Scene{
             scoreInterval = 1500
             titanRepellentPassive = true
             repellentActive = true
+        }else if(equippedShip === 'shadow'){
+            scoreInterval = 1200
+            boostDuration = 18000
+            shieldActive = true
+            shieldHealth = 2
         }
         const savedCoins = localStorage.getItem('totalCoins')
         if(savedCoins){
@@ -157,7 +162,9 @@ export default class GameScene extends Phaser.Scene{
         score = 0
         isGameOver = false
         energy = 0
-        shieldActive = false
+        if(equippedShip !== 'shadow'){
+            shieldActive = false
+        }
         this.physics.resume()
         console.log("Player Loaded")
         background = this.add.image(200, 350,
@@ -169,12 +176,17 @@ export default class GameScene extends Phaser.Scene{
             playerTexture = 'scoreship'
         }else if(equippedShip === 'titan'){
             playerTexture = 'titanShip'
+        }else if(equippedShip === 'shadow'){
+            playerTexture = 'defaultShip'
         }
 
         player = this.physics.add.image(200, 600,
         playerTexture)
         player.setAngle(180)
         player.setScale(0.08)
+        if(equippedShip === 'shadow'){
+            player.setTint(0x555555)
+        }
         player.body.setSize(
             82 / player.scaleX,
             48 / player.scaleY)
@@ -201,6 +213,26 @@ export default class GameScene extends Phaser.Scene{
         exhaust.setScale(0.09)
         exhaust.setAlpha(0.9)
         exhaust.setVisible(false)
+        if(equippedShip === 'shadow'){
+            const shadowAura = this.add.circle(
+                player.x,
+                player.y,
+                42,
+                0x000000,
+                0.18
+            )
+            shadowAura.setBlendMode(Phaser.BlendModes.ADD)
+            shadowAura.setDepth(-1)
+            player.shadowAura = shadowAura
+            this.tweens.add({
+                targets: shadowAura,
+                alpha: 0.05,
+                radius: 55,
+                yoyo: true,
+                repeat: -1,
+                duration: 800
+            })
+        }
         cursors = this.input.keyboard.createCursorKeys()
         this.input.on('pointerdown', () => {
             isBoosting = true
@@ -785,6 +817,11 @@ update() {
     exhaust.y = player.y + 45
     exhaust.setAngle(player.angle)
 
+    if(equippedShip === 'shadow' && player.shadowAura){
+        player.shadowAura.x = player.x
+        player.shadowAura.y = player.y
+    }
+
     shieldVisual.clear()
     if(shieldActive){
         shieldPulse += 0.08
@@ -954,22 +991,55 @@ function hitObstacle(player, obstacle) {
         return
     }
     if(shieldActive){
-        shieldActive = false
-        shieldVisual.clear()
-        this.cameras.main.flash(
-            120,
-            0,
-            255,
-            255
-        )
-        this.cameras.main.shake(
-            180,
-            0.008
-        )
-        if(obstacle){
-            obstacle.destroy()
+
+    // SHADOW SHIP DOUBLE SHIELD
+    if(shieldActive){
+
+    this.cameras.main.flash(
+        120,
+        0,
+        255,
+        255
+    )
+
+    this.cameras.main.shake(
+        180,
+        0.008
+    )
+
+    if(obstacle){
+        obstacle.destroy()
+    }
+
+    // SHADOW SHIP DOUBLE SHIELD
+    if(equippedShip === 'shadow'){
+
+        shieldHealth--
+
+        if(shieldHealth <= 0){
+
+            shieldActive = false
+
+            shieldVisual.clear()
+
         }
-        return
+
+    }
+    else{
+
+        shieldActive = false
+
+        shieldVisual.clear()
+
+    }
+
+    return
+
+}
+
+}
+    if(score >= 100 && equippedShip === 'default'){
+            localStorage.setItem('shadowUnlocked','true')
     }
     isGameOver = true
     this.physics.pause()
