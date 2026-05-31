@@ -604,6 +604,8 @@ export default class GameScene extends Phaser.Scene{
     )
     .setDepth(201)
     .setVisible(false)
+    const isMobile = this.sys.game.device.input.touch
+    this.isMobile = isMobile
     }
 update() {
     if(isPaused){
@@ -775,19 +777,19 @@ update() {
     }
 
     
+  if(this.isMobile){
+        const targetX = this.input.activePointer.x
+        player.x = Phaser.Math.Linear(player.x, targetX, 0.18)
+        player.x = Phaser.Math.Clamp(player.X, 35, 365)
+  }else{
     if(cursors.left.isDown || this.keys.A.isDown){
-
         player.setVelocityX(-300)
-
     }else if(cursors.right.isDown || this.keys.D.isDown){
-
         player.setVelocityX(300)
-
     }else{
-
         player.setVelocityX(0)
     }
-
+  }
     
     if(player.body.velocity.x < -10){
 
